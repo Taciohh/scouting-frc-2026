@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Scouting Oficial FRC 2026 – REBUILT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: #e5e7eb;
+  padding: 20px;
+}
+
+h1, h2, h3 { color: #38bdf8; }
+
+section { margin-bottom: 40px; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th, td {
+  border: 1px solid #334155;
+  padding: 8px;
+  text-align: center;
+}
+
+th { background: #0f172a; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 6px;
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px 16px;
+  background: #38bdf8;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:hover { background: #0ea5e9; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.small {
+  font-size: 12px;
+  color: #94a3b8;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Scouting Oficial – FRC REBUILT</h1>
+
+<section>
+<h2>Pit Scouting</h2>
+<div class="grid">
+  <input id="teamNum" placeholder="Número da equipe">
+  <select id="drive"><option>Drive</option><option>Swerve</option><option>Tank</option></select>
+  <select id="intake"><option>Intake</option><option>Chão</option><option>Humano</option></select>
+  <select id="autoLevel"><option>Autônomo</option><option>Fraco</option><option>Médio</option><option>Forte</option></select>
+</div>
+<textarea id="notes" placeholder="Observações"></textarea>
+<button onclick="addTeam()">Salvar Equipe</button>
+</section>
+
+<section>
+<h2>Match Scouting</h2>
+
+<select id="teamSelect" onchange="selectTeam(this.value)">
+  <option value="">Selecione a equipe</option>
+</select>
+
+<div class="grid">
+  <input id="auto" type="number" placeholder="AUTO">
+  <input id="tele" type="number" placeholder="TELEOP">
+  <input id="end" type="number" placeholder="ENDGAME">
+  <input id="pen" type="number" placeholder="PENALTIES">
+  <label><input id="broke" type="checkbox"> Quebrou</label>
+</div>
+
+<button onclick="addMatch()">Adicionar Match</button>
+<p class="small">⚠ Máximo de 8 rounds por equipe</p>
+</section>
+
+<section>
+<h2>Importar do The Blue Alliance</h2>
+<p class="small">⚠ Funciona apenas com internet e Live Server</p>
+<button onclick="importarMatchesTBA()">Importar Matches do TBA</button>
+</section>
+
+<section>
+<h2>Ranking</h2>
+<table id="rankTable">
+<thead>
+<tr><th>#</th><th>Equipe</th><th>Média</th><th>Total</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+</section>
+
+<section>
+<h2>Gráfico de Desempenho</h2>
+
+<p class="small">
+  🟢 AUTO &nbsp;&nbsp;
+  🔵 TELEOP &nbsp;&nbsp;
+  🟡 ENDGAME &nbsp;&nbsp;
+  🟠 MÉDIA
+</p>
+
+</p>
+
+<select id="chartTeamSelect" onchange="selectTeam(this.value)">
+  <option value="">Selecione a equipe</option>
+</select>
+
+<select id="roundSelect" onchange="renderChart(selectedTeamIndex)">
+  <option value="all">Todos os rounds</option>
+</select>
+
+<canvas id="performanceChart" width="700" height="350"
+style="background:#020617;border:1px solid #334155;"></canvas>
+
+<button onclick="exportChart()">Exportar gráfico (PNG)</button>
+</section>
+
+<script>
+// ===== CONFIGURAÇÃO TBA =====
+const TBA_KEY = "VcCXJ2jjkk5e1E1VdV1Ru7avCRH9AxVvk4LbIych38EVZvrIB4PKURAKvhP5tcjH";
+const EVENT_KEY = "2025brba";
+
+// ===== DADOS =====
+let teams = JSON.parse(localStorage.getItem("frcTeams")) || [];
+let selectedTeamIndex = null;
+
+function save() {
+  localStorage.setItem("frcTeams", JSON.stringify(teams));
+  updateTeamSelect();
+}
+
+function addTeam() {
+  if (!teamNum.value) return alert("Informe a equipe");
+  teams.push({ num: teamNum.value, matches: [] });
+  teamNum.value = "";
+  save();
+  renderRanking();
+}
+
+function updateTeamSelect() {
+  [teamSelect, chartTeamSelect].forEach(sel => {
+    sel.innerHTML = '<option value="">Selecione a equipe</option>';
+    teams.forEach((t,i) => sel.innerHTML += `<option value="${i}">${t.num}</option>`);
+  });
+}
+
+function selectTeam(i) {
+  selectedTeamIndex = i !== "" ? Number(i) : null;
+  updateRoundSelect();
+  renderChart(selectedTeamIndex);
+}
+
+function updateRoundSelect() {
+  roundSelect.innerHTML = '<option value="all">Todos os rounds</option>';
+  if (selectedTeamIndex === null) return;
+  teams[selectedTeamIndex].matches.forEach((_,i)=>{
+    roundSelect.innerHTML += `<option value="${i}">Round ${i+1}</option>`;
+  });
+}
+
+function addMatch() {
+  if (selectedTeamIndex === null) return alert("Selecione a equipe");
+
+  const team = teams[selectedTeamIndex];
+  if (team.matches.length >= 8) {
+    return alert("Limite de 8 rounds atingido");
+  }
+
+  const m = {
+    auto:+auto.value||0,
+    tele:+tele.value||0,
+    end:+end.value||0,
+    pen:+pen.value||0,
+    broke:broke.checked
+  };
+  m.total = m.auto + m.tele + m.end - m.pen;
+
+  team.matches.push(m);
+
+  auto.value = tele.value = end.value = pen.value = "";
+  broke.checked = false;
+
+  save();
+  renderRanking();
+  renderChart(selectedTeamIndex);
+}
+
+function renderRanking() {
+  const tbody = rankTable.querySelector("tbody");
+  tbody.innerHTML = "";
+
+  const ranked = teams.map(t => {
+    const total = t.matches.reduce((s, m) => s + m.total, 0);
+    const avg = t.matches.length
+      ? (total / t.matches.length).toFixed(1)
+      : 0;
+
+    return { num: t.num, avg, total };
+  })
+  // ORDENAR PELO TOTAL DE PONTOS
+  .sort((a, b) => b.total - a.total);
+
+  ranked.forEach((t, i) => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${t.num}</td>
+        <td>${t.avg}</td>
+        <td>${t.total}</td>
+      </tr>
+    `;
+  });
+}
+
+
+function renderChart(teamIndex) {
+  if (teamIndex === null) return;
+
+  const ctx = performanceChart.getContext("2d");
+  ctx.clearRect(0, 0, performanceChart.width, performanceChart.height);
+
+  let matches = teams[teamIndex].matches;
+  if (!matches || matches.length === 0) return;
+
+  if (roundSelect.value !== "all") {
+    matches = [matches[roundSelect.value]];
+  }
+
+  const pad = 50;
+  const w = performanceChart.width - pad * 2;
+  const h = performanceChart.height - pad * 2;
+
+  const max = Math.max(...matches.map(m => m.total), 10);
+
+  // ===== EIXO Y =====
+  ctx.strokeStyle = "#1e293b";
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "12px Arial";
+
+  for (let i = 0; i <= 5; i++) {
+    const y = pad + (h / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(performanceChart.width - pad, y);
+    ctx.stroke();
+
+    const val = Math.round(max - (max / 5) * i);
+    ctx.fillText(val, 10, y + 4);
+  }
+
+  // ===== FUNÇÃO LINHA + PONTOS =====
+  const drawLine = (getter, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    matches.forEach((m, i) => {
+      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+      const y = performanceChart.height - pad - (getter(m) / max) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+
+    matches.forEach((m, i) => {
+      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+      const y = performanceChart.height - pad - (getter(m) / max) * h;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  };
+
+  // ===== LINHAS =====
+  drawLine(m => m.auto, "#22c55e"); // AUTO
+  drawLine(m => m.tele, "#38bdf8"); // TELEOP
+  drawLine(m => m.end,  "#facc15"); // ENDGAME
+
+  // ===== MÉDIA TOTAL =====
+  const media = matches.reduce((s, m) => s + m.total, 0) / matches.length;
+  const yMedia = performanceChart.height - pad - (media / max) * h;
+
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = "#f97316";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.moveTo(pad, yMedia);
+  ctx.lineTo(performanceChart.width - pad, yMedia);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#f97316";
+  ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 6, yMedia - 6);
+}
+
+
+  // --- EIXO Y + GRID ---
+  ctx.strokeStyle = "#1e293b";
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "12px Arial";
+
+  for (let i = 0; i <= 5; i++) {
+    const y = pad + (h / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(performanceChart.width - pad, y);
+    ctx.stroke();
+
+    const val = Math.round(max - (max / 5) * i);
+    ctx.fillText(val, 10, y + 4);
+  }
+
+  // FUNÇÃO PARA DESENHAR LINHA + PONTOS
+  const drawLine = (getter, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    matches.forEach((m, i) => {
+      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+      const y = performanceChart.height - pad - (getter(m) / max) * h;
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+
+    // pontos
+    matches.forEach((m, i) => {
+      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+      const y = performanceChart.height - pad - (getter(m) / max) * h;
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  };
+
+  // DESENHA AS LINHAS
+  drawLine(m => m.auto, "#22c55e");   // AUTO
+  drawLine(m => m.tele, "#38bdf8");   // TELEOP
+  drawLine(m => m.end,  "#facc15");   // ENDGAME
+
+
+
+  ctx.stroke();
+
+
+
+  draw(m=>m.auto,"#22c55e");
+  draw(m=>m.tele,"#38bdf8");
+  draw(m=>m.end,"#facc15");
+
+// --- LINHA DA MÉDIA ---
+const media =
+  matches.reduce((s, m) => s + m.total, 0) / matches.length;
+
+const yMedia =
+  performanceChart.height - pad - (media / max) * h;
+
+ctx.setLineDash([6, 6]);
+ctx.strokeStyle = "#f97316"; // laranja
+ctx.lineWidth = 2;
+
+ctx.beginPath();
+ctx.moveTo(pad, yMedia);
+ctx.lineTo(performanceChart.width - pad, yMedia);
+ctx.stroke();
+
+ctx.setLineDash([]);
+
+// texto da média
+ctx.fillStyle = "#f97316";
+ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 5, yMedia - 6);
+
+
+function exportChart() {
+  const a=document.createElement("a");
+  a.download="grafico.png";
+  a.href=performanceChart.toDataURL();
+  a.click();
+}
+
+// ===== IMPORTAÇÃO TBA =====
+async function importarMatchesTBA() {
+  try {
+    const res = await fetch(
+      `https://www.thebluealliance.com/api/v3/event/${EVENT_KEY}/matches`,
+      { headers: { "X-TBA-Auth-Key": TBA_KEY } }
+    );
+    const data = await res.json();
+
+    data.forEach(match => {
+      if (!match.score_breakdown) return;
+
+      ["red","blue"].forEach(alliance=>{
+        const sb = match.score_breakdown[alliance];
+        match.alliances[alliance].team_keys.forEach(k=>{
+          const num = k.replace("frc","");
+          let team = teams.find(t=>t.num===num);
+          if(!team){ team={num, matches:[]}; teams.push(team); }
+          if (team.matches.length >= 8) return;
+
+          team.matches.push({
+            auto: sb.autoPoints||0,
+            tele: sb.teleopPoints||0,
+            end: sb.endgamePoints||0,
+            pen: sb.foulPoints||0,
+            total: match.alliances[alliance].score||0,
+            broke:false
+          });
+        });
+      });
+    });
+
+    save();
+    renderRanking();
+    alert("Importação do TBA concluída!");
+  } catch(e){
+    alert("Erro ao importar do TBA");
+    console.error(e);
+  }
+}
+
+updateTeamSelect();
+renderRanking();
+</script>
+
+</body>
+</html>
