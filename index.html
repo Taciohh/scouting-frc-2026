@@ -64,6 +64,7 @@ button:hover { background: #0ea5e9; }
 </style>
 </head>
 
+
 <body>
 
 <h1>Scouting Oficial – FRC REBUILT</h1>
@@ -153,7 +154,9 @@ let selectedTeamIndex = null;
 function save() {
   localStorage.setItem("frcTeams", JSON.stringify(teams));
   updateTeamSelect();
+  atualizarSelectAliancas();
 }
+
 
 function addTeam() {
   if (!teamNum.value) return alert("Informe a equipe");
@@ -453,11 +456,118 @@ async function importarMatchesTBA() {
     console.error(e);
   }
 }
+// ====== SIMULADOR DE ALIANÇAS ======
+
+function atualizarSelectAliancas() {
+  const selects = [
+    a1t1,a1t2,a1t3,
+    a2t1,a2t2,a2t3
+  ];
+
+  selects.forEach(sel=>{
+    sel.innerHTML = '<option value="">Selecione</option>';
+    teams.forEach((t,i)=>{
+      sel.innerHTML += `<option value="${i}">${t.num}</option>`;
+    });
+  });
+}
+
+function calcularStatsAlianca(indexes) {
+  let mediaTotal = 0;
+  let maxTotal = 0;
+
+  indexes.forEach(i=>{
+    const team = teams[i];
+    if(!team || team.matches.length===0) return;
+
+    const totals = team.matches.map(m=>m.total);
+
+    const media = totals.reduce((a,b)=>a+b,0) / totals.length;
+    const max = Math.max(...totals);
+
+    mediaTotal += media;
+    maxTotal += max;
+  });
+
+  return {
+    media: mediaTotal.toFixed(1),
+    max: maxTotal
+  };
+}
+
+function simularAliancas() {
+
+  const alianca1 = [
+    Number(a1t1.value),
+    Number(a1t2.value),
+    Number(a1t3.value)
+  ];
+
+  const alianca2 = [
+    Number(a2t1.value),
+    Number(a2t2.value),
+    Number(a2t3.value)
+  ];
+
+  if (alianca1.includes(NaN) || alianca2.includes(NaN)) {
+    return alert("Selecione todas as equipes");
+  }
+
+  const r1 = calcularStatsAlianca(alianca1);
+  const r2 = calcularStatsAlianca(alianca2);
+
+  resultadoAliancas.innerHTML = `
+    <tr>
+      <td>Aliança 1</td>
+      <td>${r1.media}</td>
+      <td>${r1.max}</td>
+    </tr>
+    <tr>
+      <td>Aliança 2</td>
+      <td>${r2.media}</td>
+      <td>${r2.max}</td>
+    </tr>
+  `;
+}
 
 updateTeamSelect();
 renderRanking();
 </script>
 
+<section>
+<h2>Simulador de Alianças</h2>
+
+<div class="grid">
+  <div>
+    <h3>Aliança 1</h3>
+    <select id="a1t1"></select>
+    <select id="a1t2"></select>
+    <select id="a1t3"></select>
+  </div>
+
+  <div>
+    <h3>Aliança 2</h3>
+    <select id="a2t1"></select>
+    <select id="a2t2"></select>
+    <select id="a2t3"></select>
+  </div>
+</div>
+
+<button onclick="simularAliancas()">Simular Resultado</button>
+
+<table style="margin-top:20px;">
+<thead>
+<tr>
+  <th>Aliança</th>
+  <th>Média</th>
+  <th>Máximo</th>
+</tr>
+</thead>
+<tbody id="resultadoAliancas"></tbody>
+</table>
+</section>
+
 </body>
 </html>
+
 
