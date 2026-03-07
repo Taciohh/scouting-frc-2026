@@ -4,420 +4,238 @@
 <meta charset="UTF-8">
 <title>Scouting Oficial FRC 2026 – REBUILT</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #020617;
-  color: #e5e7eb;
-  padding: 20px;
-}
-
-h1, h2, h3 { color: #38bdf8; }
-
-section { margin-bottom: 40px; }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-th, td {
-  border: 1px solid #334155;
-  padding: 8px;
-  text-align: center;
-}
-
-th { background: #0f172a; }
-
-input, select, textarea {
-  width: 100%;
-  padding: 6px;
-  background: #020617;
-  color: #e5e7eb;
-  border: 1px solid #334155;
-  border-radius: 4px;
-}
-
-button {
-  padding: 10px 16px;
-  background: #38bdf8;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-button:hover { background: #0ea5e9; }
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.small {
-  font-size: 12px;
-  color: #94a3b8;
-}
+  body { font-family: Arial, sans-serif; background: #020617; color: #e5e7eb; padding: 20px; }
+  h1, h2, h3 { color: #38bdf8; }
+  section { margin-bottom: 40px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  th, td { border: 1px solid #334155; padding: 8px; text-align: center; }
+  th { background: #0f172a; }
+  input, select, textarea { width: 100%; padding: 8px; background: #0f172a; color: #e5e7eb; border: 1px solid #334155; border-radius: 4px; box-sizing: border-box; }
+  button { padding: 10px 16px; background: #38bdf8; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+  button:hover { background: #0ea5e9; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 10px; }
+  .small { font-size: 12px; color: #94a3b8; }
+  canvas { background:#020617; border:1px solid #334155; max-width: 100%; }
 </style>
 </head>
-
-
 <body>
 
 <h1>Scouting Oficial – FRC REBUILT</h1>
 
 <section>
-<h2>Pit Scouting</h2>
-<div class="grid">
-  <input id="teamNum" placeholder="Número da equipe">
-  <select id="drive"><option>Drive</option><option>Swerve</option><option>Tank</option></select>
-  <select id="intake"><option>Intake</option><option>Chão</option><option>Humano</option></select>
-  <select id="autoLevel"><option>Autônomo</option><option>Fraco</option><option>Médio</option><option>Forte</option></select>
-</div>
-<textarea id="notes" placeholder="Observações"></textarea>
-<button onclick="addTeam()">Salvar Equipe</button>
+  <h2>Pit Scouting</h2>
+  <div class="grid">
+    <input id="teamNum" placeholder="Número da equipe">
+    <select id="drive"><option>Drive</option><option>Swerve</option><option>Tank</option></select>
+    <select id="intake"><option>Intake</option><option>Chão</option><option>Humano</option></select>
+    <select id="autoLevel"><option>Autônomo</option><option>Fraco</option><option>Médio</option><option>Forte</option></select>
+  </div>
+  <textarea id="notes" placeholder="Observações"></textarea>
+  <button onclick="addTeam()">Salvar Equipe</button>
 </section>
 
 <section>
-<h2>Match Scouting</h2>
-
-<select id="teamSelect" onchange="selectTeam(this.value)">
-  <option value="">Selecione a equipe</option>
-</select>
-
-<div class="grid">
-  <input id="auto" type="number" placeholder="AUTO">
-  <input id="tele" type="number" placeholder="TELEOP">
-  <input id="end" type="number" placeholder="ENDGAME">
-  <input id="pen" type="number" placeholder="PENALTIES">
-  <label><input id="broke" type="checkbox"> Quebrou</label>
-</div>
-
-<button onclick="addMatch()">Adicionar Match</button>
-<p class="small">⚠ Máximo de 8 rounds por equipe</p>
+  <h2>Match Scouting</h2>
+  <select id="teamSelect" onchange="selectTeam(this.value)">
+    <option value="">Selecione a equipe</option>
+  </select>
+  <div class="grid" style="margin-top:15px;">
+    <input id="autoInput" type="number" placeholder="AUTO">
+    <input id="teleInput" type="number" placeholder="TELEOP">
+    <input id="endInput" type="number" placeholder="ENDGAME">
+    <input id="penInput" type="number" placeholder="PENALTIES">
+    <label style="display:flex; align-items:center;"><input id="brokeInput" type="checkbox" style="width:auto; margin-right:10px;"> Quebrou</label>
+  </div>
+  <button onclick="addMatch()">Adicionar Match</button>
+  <p class="small">⚠ Máximo de 8 rounds por equipe</p>
 </section>
 
 <section>
-<h2>Importar do The Blue Alliance</h2>
-<p class="small">⚠ Funciona apenas com internet e Live Server</p>
-<button onclick="importarMatchesTBA()">Importar Matches do TBA</button>
+  <h2>Importar do The Blue Alliance</h2>
+  <p class="small">⚠ Os dados serão divididos por 3 para estimar o desempenho individual.</p>
+  <button onclick="importarMatchesTBA()" style="background:#4f46e5;">Importar Matches do TBA</button>
 </section>
 
 <section>
-<h2>Ranking</h2>
-<table id="rankTable">
-<thead>
-<tr><th>#</th><th>Equipe</th><th>Média</th><th>Total</th></tr>
-</thead>
-<tbody></tbody>
-</table>
+  <h2>Ranking</h2>
+  <table id="rankTable">
+    <thead>
+      <tr><th>#</th><th>Equipe</th><th>Média</th><th>Total</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </section>
 
 <section>
-<h2>Gráfico de Desempenho</h2>
+  <h2>Gráfico de Desempenho</h2>
+  <p class="small">🟢 AUTO | 🔵 TELEOP | 🟡 ENDGAME | 🟠 MÉDIA</p>
+  <div class="grid">
+    <select id="chartTeamSelect" onchange="selectTeam(this.value)">
+      <option value="">Selecione a equipe</option>
+    </select>
+    <select id="roundSelect" onchange="renderChart(selectedTeamIndex)">
+      <option value="all">Todos os rounds</option>
+    </select>
+  </div>
+  <canvas id="performanceChart" width="700" height="350"></canvas>
+  <button onclick="exportChart()">Exportar gráfico (PNG)</button>
+</section>
 
-<p class="small">
-  🟢 AUTO &nbsp;&nbsp;
-  🔵 TELEOP &nbsp;&nbsp;
-  🟡 ENDGAME &nbsp;&nbsp;
-  🟠 MÉDIA
-</p>
-
-</p>
-
-<select id="chartTeamSelect" onchange="selectTeam(this.value)">
-  <option value="">Selecione a equipe</option>
-</select>
-
-<select id="roundSelect" onchange="renderChart(selectedTeamIndex)">
-  <option value="all">Todos os rounds</option>
-</select>
-
-<canvas id="performanceChart" width="700" height="350"
-style="background:#020617;border:1px solid #334155;"></canvas>
-
-<button onclick="exportChart()">Exportar gráfico (PNG)</button>
+<section>
+  <h2>Simulador de Alianças</h2>
+  <div class="grid">
+    <div>
+      <h3>Aliança 1</h3>
+      <select id="a1t1"></select><select id="a1t2"></select><select id="a1t3"></select>
+    </div>
+    <div>
+      <h3>Aliança 2</h3>
+      <select id="a2t1"></select><select id="a2t2"></select><select id="a2t3"></select>
+    </div>
+  </div>
+  <button onclick="simularAliancas()">Simular Resultado</button>
+  <table>
+    <thead><tr><th>Aliança</th><th>Média Esperada</th><th>Potencial Máximo</th></tr></thead>
+    <tbody id="resultadoAliancas"></tbody>
+  </table>
 </section>
 
 <script>
-// ===== CONFIGURAÇÃO TBA =====
-const TBA_KEY = "VcCXJ2jjkk5e1E1VdV1Ru7avCRH9AxVvk4LbIych38EVZvrIB4PKURAKvhP5tcjH";
-const EVENT_KEY = "2026brba";
+// --- 1. LIMPEZA DE CACHE POR EVENTO ---
+const EVENTO_ATUAL = "2026brba"; 
+if (localStorage.getItem("evento_ativo") !== EVENTO_ATUAL) {
+    localStorage.removeItem("frcTeams"); 
+    localStorage.setItem("evento_ativo", EVENTO_ATUAL);
+    console.log("Evento trocado. Dados limpos.");
+}
 
-// ===== DADOS =====
+// --- 2. CONFIGURAÇÕES ---
+const TBA_KEY = "VcCXJ2jjkk5e1E1VdV1Ru7avCRH9AxVvk4LbIych38EVZvrIB4PKURAKvhP5tcjH";
+const EVENT_KEY = EVENTO_ATUAL;
+
 let teams = JSON.parse(localStorage.getItem("frcTeams")) || [];
 let selectedTeamIndex = null;
 
+// --- 3. FUNÇÕES DE DADOS ---
 function save() {
-  localStorage.setItem("frcTeams", JSON.stringify(teams));
-  updateTeamSelect();
-  atualizarSelectAliancas();
+    localStorage.setItem("frcTeams", JSON.stringify(teams));
+    updateTeamSelects();
 }
-
 
 function addTeam() {
-  if (!teamNum.value) return alert("Informe a equipe");
-  teams.push({ num: teamNum.value, matches: [] });
-  teamNum.value = "";
-  save();
-  renderRanking();
+    const num = document.getElementById("teamNum").value;
+    if (!num) return alert("Informe o número");
+    if (teams.find(t => t.num === num)) return alert("Equipe já existe");
+    teams.push({ num: num, matches: [] });
+    document.getElementById("teamNum").value = "";
+    save();
+    renderRanking();
 }
 
-function updateTeamSelect() {
-  [teamSelect, chartTeamSelect].forEach(sel => {
-    sel.innerHTML = '<option value="">Selecione a equipe</option>';
-    teams.forEach((t,i) => sel.innerHTML += `<option value="${i}">${t.num}</option>`);
-  });
+function updateTeamSelects() {
+    const selects = ["teamSelect", "chartTeamSelect", "a1t1", "a1t2", "a1t3", "a2t1", "a2t2", "a2t3"];
+    selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = '<option value="">Selecione</option>';
+        teams.forEach((t, i) => {
+            el.innerHTML += `<option value="${i}">${t.num}</option>`;
+        });
+    });
 }
 
 function selectTeam(i) {
-  selectedTeamIndex = i !== "" ? Number(i) : null;
-  updateRoundSelect();
-  renderChart(selectedTeamIndex);
+    selectedTeamIndex = i !== "" ? Number(i) : null;
+    document.getElementById("teamSelect").value = i;
+    document.getElementById("chartTeamSelect").value = i;
+    updateRoundSelect();
+    renderChart(selectedTeamIndex);
 }
 
 function updateRoundSelect() {
-  roundSelect.innerHTML = '<option value="all">Todos os rounds</option>';
-  if (selectedTeamIndex === null) return;
-  teams[selectedTeamIndex].matches.forEach((_,i)=>{
-    roundSelect.innerHTML += `<option value="${i}">Round ${i+1}</option>`;
-  });
+    const rs = document.getElementById("roundSelect");
+    rs.innerHTML = '<option value="all">Todos os rounds</option>';
+    if (selectedTeamIndex === null) return;
+    teams[selectedTeamIndex].matches.forEach((_, i) => {
+        rs.innerHTML += `<option value="${i}">Round ${i+1}</option>`;
+    });
 }
 
 function addMatch() {
-  if (selectedTeamIndex === null) return alert("Selecione a equipe");
+    if (selectedTeamIndex === null) return alert("Selecione a equipe");
+    const team = teams[selectedTeamIndex];
+    if (team.matches.length >= 8) return alert("Limite atingido");
 
-  const team = teams[selectedTeamIndex];
-  if (team.matches.length >= 8) {
-    return alert("Limite de 8 rounds atingido");
-  }
+    const m = {
+        auto: +document.getElementById("autoInput").value || 0,
+        tele: +document.getElementById("teleInput").value || 0,
+        end: +document.getElementById("endInput").value || 0,
+        pen: +document.getElementById("penInput").value || 0,
+        broke: document.getElementById("brokeInput").checked
+    };
+    m.total = m.auto + m.tele + m.end - m.pen;
+    team.matches.push(m);
+    
+    // Limpar campos
+    ["autoInput", "teleInput", "endInput", "penInput"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("brokeInput").checked = false;
 
-  const m = {
-    auto:+auto.value||0,
-    tele:+tele.value||0,
-    end:+end.value||0,
-    pen:+pen.value||0,
-    broke:broke.checked
-  };
-  m.total = m.auto + m.tele + m.end - m.pen;
-
-  team.matches.push(m);
-
-  auto.value = tele.value = end.value = pen.value = "";
-  broke.checked = false;
-
-  save();
-  renderRanking();
-  renderChart(selectedTeamIndex);
+    save();
+    renderRanking();
+    renderChart(selectedTeamIndex);
 }
 
+// --- 4. RANKING E GRÁFICO ---
 function renderRanking() {
-  const tbody = rankTable.querySelector("tbody");
-  tbody.innerHTML = "";
+    const tbody = document.querySelector("#rankTable tbody");
+    tbody.innerHTML = "";
+    const ranked = teams.map(t => {
+        const total = t.matches.reduce((s, m) => s + m.total, 0);
+        const avg = t.matches.length ? (total / t.matches.length).toFixed(1) : 0;
+        return { num: t.num, avg, total };
+    }).sort((a, b) => b.total - a.total);
 
-  const ranked = teams.map(t => {
-    const total = t.matches.reduce((s, m) => s + m.total, 0);
-    const avg = t.matches.length
-      ? (total / t.matches.length).toFixed(1)
-      : 0;
-
-    return { num: t.num, avg, total };
-  })
-  // ORDENAR PELO TOTAL DE PONTOS
-  .sort((a, b) => b.total - a.total);
-
-  ranked.forEach((t, i) => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${t.num}</td>
-        <td>${t.avg}</td>
-        <td>${t.total}</td>
-      </tr>
-    `;
-  });
+    ranked.forEach((t, i) => {
+        tbody.innerHTML += `<tr><td>${i+1}</td><td>${t.num}</td><td>${t.avg}</td><td>${t.total}</td></tr>`;
+    });
 }
-
 
 function renderChart(teamIndex) {
-  if (teamIndex === null) return;
+    const canvas = document.getElementById("performanceChart");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (teamIndex === null || teams[teamIndex].matches.length === 0) return;
 
-  const ctx = performanceChart.getContext("2d");
-  ctx.clearRect(0, 0, performanceChart.width, performanceChart.height);
+    let matches = teams[teamIndex].matches;
+    if (document.getElementById("roundSelect").value !== "all") {
+        matches = [matches[document.getElementById("roundSelect").value]];
+    }
 
-  let matches = teams[teamIndex].matches;
-  if (!matches || matches.length === 0) return;
+    const pad = 50, w = canvas.width - pad*2, h = canvas.height - pad*2;
+    const max = Math.max(...matches.map(m => m.total), 20);
 
-  if (roundSelect.value !== "all") {
-    matches = [matches[roundSelect.value]];
-  }
+    const drawL = (getter, color) => {
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+        matches.forEach((m, i) => {
+            const x = pad + (matches.length === 1 ? w/2 : (w/(matches.length-1))*i);
+            const y = canvas.height - pad - (getter(m)/max)*h;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    };
 
-  const pad = 50;
-  const w = performanceChart.width - pad * 2;
-  const h = performanceChart.height - pad * 2;
-
-  const max = Math.max(...matches.map(m => m.total), 10);
-
-  // ===== EIXO Y =====
-  ctx.strokeStyle = "#1e293b";
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "12px Arial";
-
-  for (let i = 0; i <= 5; i++) {
-    const y = pad + (h / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad, y);
-    ctx.lineTo(performanceChart.width - pad, y);
-    ctx.stroke();
-
-    const val = Math.round(max - (max / 5) * i);
-    ctx.fillText(val, 10, y + 4);
-  }
-
-  // ===== FUNÇÃO LINHA + PONTOS =====
-  const drawLine = (getter, color) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-
-    matches.forEach((m, i) => {
-      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
-      const y = performanceChart.height - pad - (getter(m) / max) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-
-    ctx.stroke();
-
-    matches.forEach((m, i) => {
-      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
-      const y = performanceChart.height - pad - (getter(m) / max) * h;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  };
-
-  // ===== LINHAS =====
-  drawLine(m => m.auto, "#22c55e"); // AUTO
-  drawLine(m => m.tele, "#38bdf8"); // TELEOP
-  drawLine(m => m.end,  "#facc15"); // ENDGAME
-
-  // ===== MÉDIA TOTAL =====
-  const media = matches.reduce((s, m) => s + m.total, 0) / matches.length;
-  const yMedia = performanceChart.height - pad - (media / max) * h;
-
-  ctx.setLineDash([6, 6]);
-  ctx.strokeStyle = "#f97316";
-  ctx.lineWidth = 2;
-
-  ctx.beginPath();
-  ctx.moveTo(pad, yMedia);
-  ctx.lineTo(performanceChart.width - pad, yMedia);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = "#f97316";
-  ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 6, yMedia - 6);
+    drawL(m => m.auto, "#22c55e");
+    drawL(m => m.tele, "#38bdf8");
+    drawL(m => m.end, "#facc15");
 }
 
+// --- 5. TBA E SIMULAÇÃO ---
 
-  // --- EIXO Y + GRID ---
-  ctx.strokeStyle = "#1e293b";
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "12px Arial";
-
-  for (let i = 0; i <= 5; i++) {
-    const y = pad + (h / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad, y);
-    ctx.lineTo(performanceChart.width - pad, y);
-    ctx.stroke();
-
-    const val = Math.round(max - (max / 5) * i);
-    ctx.fillText(val, 10, y + 4);
-  }
-
-  // FUNÇÃO PARA DESENHAR LINHA + PONTOS
-  const drawLine = (getter, color) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-
-    matches.forEach((m, i) => {
-      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
-      const y = performanceChart.height - pad - (getter(m) / max) * h;
-
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-
-    ctx.stroke();
-
-    // pontos
-    matches.forEach((m, i) => {
-      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
-      const y = performanceChart.height - pad - (getter(m) / max) * h;
-
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  };
-
-  // DESENHA AS LINHAS
-  drawLine(m => m.auto, "#22c55e");   // AUTO
-  drawLine(m => m.tele, "#38bdf8");   // TELEOP
-  drawLine(m => m.end,  "#facc15");   // ENDGAME
-
-
-
-  ctx.stroke();
-
-
-
-  draw(m=>m.auto,"#22c55e");
-  draw(m=>m.tele,"#38bdf8");
-  draw(m=>m.end,"#facc15");
-
-// --- LINHA DA MÉDIA ---
-const media =
-  matches.reduce((s, m) => s + m.total, 0) / matches.length;
-
-const yMedia =
-  performanceChart.height - pad - (media / max) * h;
-
-ctx.setLineDash([6, 6]);
-ctx.strokeStyle = "#f97316"; // laranja
-ctx.lineWidth = 2;
-
-ctx.beginPath();
-ctx.moveTo(pad, yMedia);
-ctx.lineTo(performanceChart.width - pad, yMedia);
-ctx.stroke();
-
-ctx.setLineDash([]);
-
-// texto da média
-ctx.fillStyle = "#f97316";
-ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 5, yMedia - 6);
-
-
-function exportChart() {
-  const a=document.createElement("a");
-  a.download="grafico.png";
-  a.href=performanceChart.toDataURL();
-  a.click();
-}
-
-// ===== IMPORTAÇÃO TBA =====
+// ===== IMPORTAÇÃO TBA CORRIGIDA =====
 async function importarMatchesTBA() {
+  if (!confirm("Isso irá sobrescrever os dados atuais. Deseja continuar?")) return;
+  
   try {
     const res = await fetch(
       `https://www.thebluealliance.com/api/v3/event/${EVENT_KEY}/matches`,
@@ -425,152 +243,82 @@ async function importarMatchesTBA() {
     );
     const data = await res.json();
 
+    // Limpa os times atuais para evitar duplicar rounds e somas infinitas
+    teams = []; 
+
     data.forEach(match => {
-      if (!match.score_breakdown) return;
+      // Pula se a partida ainda não aconteceu ou não tem detalhes de pontuação
+      if (!match.score_breakdown || match.comp_level !== "qm") return;
 
-      ["red","blue"].forEach(alliance=>{
+      ["red", "blue"].forEach(alliance => {
         const sb = match.score_breakdown[alliance];
-        match.alliances[alliance].team_keys.forEach(k=>{
-          const num = k.replace("frc","");
-          let team = teams.find(t=>t.num===num);
-          if(!team){ team={num, matches:[]}; teams.push(team); }
-          if (team.matches.length >= 8) return;
+        match.alliances[alliance].team_keys.forEach(k => {
+          const num = k.replace("frc", "");
+          let team = teams.find(t => t.num === num);
+          
+          if (!team) { 
+            team = { num, matches: [] }; 
+            teams.push(team); 
+          }
 
-          team.matches.push({
-            auto: sb.autoPoints||0,
-            tele: sb.teleopPoints||0,
-            end: sb.endgamePoints||0,
-            pen: sb.foulPoints||0,
-            total: match.alliances[alliance].score||0,
-            broke:false
-          });
+          // Só adiciona se o time tiver menos de 12 matches (limite comum de Quals)
+          if (team.matches.length < 12) {
+            team.matches.push({
+              // Nota: Como o TBA dá o ponto da ALIANÇA, dividimos por 3 
+              // para ter uma estimativa real por robô no gráfico.
+              auto: Math.round((sb.autoPoints || 0) / 3),
+              tele: Math.round((sb.teleopPoints || 0) / 3),
+              end: Math.round((sb.endgamePoints || 0) / 3),
+              pen: Math.round((sb.foulPoints || 0) / 3),
+              total: Math.round((match.alliances[alliance].score || 0) / 3),
+              broke: false
+            });
+          }
         });
       });
     });
 
     save();
     renderRanking();
-    alert("Importação do TBA concluída!");
-  } catch(e){
-    alert("Erro ao importar do TBA");
+    updateTeamSelects(); // Chamei a função correta do seu código
+    alert("Importação concluída! Os valores foram calculados pela média da aliança.");
+  } catch (e) {
+    alert("Erro ao importar do TBA. Verifique sua chave e conexão.");
     console.error(e);
   }
 }
-// ====== SIMULADOR DE ALIANÇAS ======
-
-function atualizarSelectAliancas() {
-  const selects = [
-    a1t1,a1t2,a1t3,
-    a2t1,a2t2,a2t3
-  ];
-
-  selects.forEach(sel=>{
-    sel.innerHTML = '<option value="">Selecione</option>';
-    teams.forEach((t,i)=>{
-      sel.innerHTML += `<option value="${i}">${t.num}</option>`;
-    });
-  });
-}
-
-function calcularStatsAlianca(indexes) {
-  let mediaTotal = 0;
-  let maxTotal = 0;
-
-  indexes.forEach(i=>{
-    const team = teams[i];
-    if(!team || team.matches.length===0) return;
-
-    const totals = team.matches.map(m=>m.total);
-
-    const media = totals.reduce((a,b)=>a+b,0) / totals.length;
-    const max = Math.max(...totals);
-
-    mediaTotal += media;
-    maxTotal += max;
-  });
-
-  return {
-    media: mediaTotal.toFixed(1),
-    max: maxTotal
-  };
-}
 
 function simularAliancas() {
+    const getVal = id => document.getElementById(id).value;
+    const a1 = [getVal("a1t1"), getVal("a1t2"), getVal("a1t3")];
+    const a2 = [getVal("a2t1"), getVal("a2t2"), getVal("a2t3")];
+    
+    const calc = idxs => {
+        let med = 0, max = 0;
+        idxs.forEach(i => {
+            if(i === "") return;
+            const t = teams[i];
+            const pts = t.matches.map(m => m.total);
+            med += pts.length ? pts.reduce((a,b)=>a+b,0)/pts.length : 0;
+            max += pts.length ? Math.max(...pts) : 0;
+        });
+        return { med: med.toFixed(1), max };
+    };
 
-  const alianca1 = [
-    Number(a1t1.value),
-    Number(a1t2.value),
-    Number(a1t3.value)
-  ];
-
-  const alianca2 = [
-    Number(a2t1.value),
-    Number(a2t2.value),
-    Number(a2t3.value)
-  ];
-
-  if (alianca1.includes(NaN) || alianca2.includes(NaN)) {
-    return alert("Selecione todas as equipes");
-  }
-
-  const r1 = calcularStatsAlianca(alianca1);
-  const r2 = calcularStatsAlianca(alianca2);
-
-  resultadoAliancas.innerHTML = `
-    <tr>
-      <td>Aliança 1</td>
-      <td>${r1.media}</td>
-      <td>${r1.max}</td>
-    </tr>
-    <tr>
-      <td>Aliança 2</td>
-      <td>${r2.media}</td>
-      <td>${r2.max}</td>
-    </tr>
-  `;
+    const r1 = calc(a1), r2 = calc(a2);
+    document.getElementById("resultadoAliancas").innerHTML = `
+        <tr><td>Aliança 1</td><td>${r1.med}</td><td>${r1.max}</td></tr>
+        <tr><td>Aliança 2</td><td>${r2.med}</td><td>${r2.max}</td></tr>`;
 }
 
-updateTeamSelect();
+function exportChart() {
+    const a = document.createElement("a");
+    a.download = "grafico.png";
+    a.href = document.getElementById("performanceChart").toDataURL();
+    a.click();
+}
+
+// Inicialização
+updateTeamSelects();
 renderRanking();
 </script>
-
-<section>
-<h2>Simulador de Alianças</h2>
-
-<div class="grid">
-  <div>
-    <h3>Aliança 1</h3>
-    <select id="a1t1"></select>
-    <select id="a1t2"></select>
-    <select id="a1t3"></select>
-  </div>
-
-  <div>
-    <h3>Aliança 2</h3>
-    <select id="a2t1"></select>
-    <select id="a2t2"></select>
-    <select id="a2t3"></select>
-  </div>
-</div>
-
-<button onclick="simularAliancas()">Simular Resultado</button>
-
-<table style="margin-top:20px;">
-<thead>
-<tr>
-  <th>Aliança</th>
-  <th>Média</th>
-  <th>Máximo</th>
-</tr>
-</thead>
-<tbody id="resultadoAliancas"></tbody>
-</table>
-</section>
-
-</body>
-</html>
-
-
-
-
-
