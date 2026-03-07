@@ -16,7 +16,10 @@
   button:hover { background: #0ea5e9; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 10px; }
   .small { font-size: 12px; color: #94a3b8; }
+  .scroll-table { max-height: 300px; overflow-y: auto; border: 1px solid #334155; margin-top: 10px; }
   canvas { background:#020617; border:1px solid #334155; max-width: 100%; }
+  .win-red { background: #450a0a !important; }
+  .win-blue { background: #172554 !important; }
 </style>
 </head>
 <body>
@@ -36,7 +39,7 @@
 </section>
 
 <section>
-  <h2>Match Scouting</h2>
+  <h2>Match Scouting (Manual)</h2>
   <select id="teamSelect" onchange="selectTeam(this.value)">
     <option value="">Selecione a equipe</option>
   </select>
@@ -48,20 +51,28 @@
     <label style="display:flex; align-items:center;"><input id="brokeInput" type="checkbox" style="width:auto; margin-right:10px;"> Quebrou</label>
   </div>
   <button onclick="addMatch()">Adicionar Match</button>
-  <p class="small">⚠ Máximo de 8 rounds por equipe</p>
 </section>
 
 <section>
-  <h2>Importar do The Blue Alliance</h2>
-  <p class="small">⚠ Os dados serão divididos por 3 para estimar o desempenho individual.</p>
-  <button onclick="importarMatchesTBA()" style="background:#4f46e5;">Importar Matches do TBA</button>
+  <h2>The Blue Alliance - Event View</h2>
+  <button onclick="importarMatchesTBA()" style="background:#4f46e5;">Atualizar Dados do Evento</button>
+  
+  <h3>Histórico Real das Alianças</h3>
+  <div class="scroll-table">
+    <table>
+      <thead>
+        <tr><th>Match</th><th style="color:#f87171">Red Score</th><th style="color:#60a5fa">Blue Score</th><th>Vencedor</th></tr>
+      </thead>
+      <tbody id="allianceHistoryBody"></tbody>
+    </table>
+  </div>
 </section>
 
 <section>
-  <h2>Ranking</h2>
+  <h2>Ranking (Estimativa Individual)</h2>
   <table id="rankTable">
     <thead>
-      <tr><th>#</th><th>Equipe</th><th>Média</th><th>Total</th></tr>
+      <tr><th>#</th><th>Equipe</th><th>Média/Robô</th><th>Total/Robô</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -69,68 +80,46 @@
 
 <section>
   <h2>Gráfico de Desempenho</h2>
-  <p class="small">🟢 AUTO | 🔵 TELEOP | 🟡 ENDGAME | 🟠 MÉDIA</p>
   <div class="grid">
-    <select id="chartTeamSelect" onchange="selectTeam(this.value)">
-      <option value="">Selecione a equipe</option>
-    </select>
+    <select id="chartTeamSelect" onchange="selectTeam(this.value)"></select>
     <select id="roundSelect" onchange="renderChart(selectedTeamIndex)">
       <option value="all">Todos os rounds</option>
     </select>
   </div>
   <canvas id="performanceChart" width="700" height="350"></canvas>
-  <button onclick="exportChart()">Exportar gráfico (PNG)</button>
 </section>
 
 <section>
   <h2>Simulador de Alianças</h2>
   <div class="grid">
-    <div>
-      <h3>Aliança 1</h3>
-      <select id="a1t1"></select><select id="a1t2"></select><select id="a1t3"></select>
-    </div>
-    <div>
-      <h3>Aliança 2</h3>
-      <select id="a2t1"></select><select id="a2t2"></select><select id="a2t3"></select>
-    </div>
+    <div><h3>Aliança 1</h3><select id="a1t1"></select><select id="a1t2"></select><select id="a1t3"></select></div>
+    <div><h3>Aliança 2</h3><select id="a2t1"></select><select id="a2t2"></select><select id="a2t3"></select></div>
   </div>
   <button onclick="simularAliancas()">Simular Resultado</button>
   <table>
-    <thead><tr><th>Aliança</th><th>Média Esperada</th><th>Potencial Máximo</th></tr></thead>
+    <thead><tr><th>Aliança</th><th>Média</th><th>Máximo</th></tr></thead>
     <tbody id="resultadoAliancas"></tbody>
   </table>
 </section>
 
 <script>
-// --- 1. LIMPEZA DE CACHE POR EVENTO ---
+// --- CONFIGURAÇÃO INICIAL E LIMPEZA ---
 const EVENTO_ATUAL = "2026brba"; 
 if (localStorage.getItem("evento_ativo") !== EVENTO_ATUAL) {
-    localStorage.removeItem("frcTeams"); 
+    localStorage.clear();
     localStorage.setItem("evento_ativo", EVENTO_ATUAL);
-    console.log("Evento trocado. Dados limpos.");
 }
 
-// --- 2. CONFIGURAÇÕES ---
 const TBA_KEY = "VcCXJ2jjkk5e1E1VdV1Ru7avCRH9AxVvk4LbIych38EVZvrIB4PKURAKvhP5tcjH";
 const EVENT_KEY = EVENTO_ATUAL;
 
 let teams = JSON.parse(localStorage.getItem("frcTeams")) || [];
 let selectedTeamIndex = null;
 
-// --- 3. FUNÇÕES DE DADOS ---
+// --- FUNÇÕES CORE ---
 function save() {
     localStorage.setItem("frcTeams", JSON.stringify(teams));
     updateTeamSelects();
-}
-
-function addTeam() {
-    const num = document.getElementById("teamNum").value;
-    if (!num) return alert("Informe o número");
-    if (teams.find(t => t.num === num)) return alert("Equipe já existe");
-    teams.push({ num: num, matches: [] });
-    document.getElementById("teamNum").value = "";
-    save();
-    renderRanking();
 }
 
 function updateTeamSelects() {
@@ -138,13 +127,82 @@ function updateTeamSelects() {
     selects.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
+        const currentVal = el.value;
         el.innerHTML = '<option value="">Selecione</option>';
-        teams.forEach((t, i) => {
-            el.innerHTML += `<option value="${i}">${t.num}</option>`;
-        });
+        teams.forEach((t, i) => { el.innerHTML += `<option value="${i}">${t.num}</option>`; });
+        el.value = currentVal;
     });
 }
 
+function addTeam() {
+    const num = document.getElementById("teamNum").value;
+    if (!num || teams.find(t => t.num === num)) return;
+    teams.push({ num: num, matches: [] });
+    document.getElementById("teamNum").value = "";
+    save(); renderRanking();
+}
+
+async function importarMatchesTBA() {
+    if(!confirm("Isso atualizará o histórico e o ranking. Continuar?")) return;
+    try {
+        const res = await fetch(`https://www.thebluealliance.com/api/v3/event/${EVENT_KEY}/matches`, { headers: {"X-TBA-Auth-Key": TBA_KEY}});
+        const data = await res.json();
+        data.sort((a, b) => a.match_number - b.match_number);
+
+        const historyBody = document.getElementById("allianceHistoryBody");
+        historyBody.innerHTML = "";
+        teams = []; // Reset para evitar duplicados
+
+        data.forEach(match => {
+            if (!match.score_breakdown || match.comp_level !== "qm") return;
+
+            // Histórico Real
+            const red = match.alliances.red.score;
+            const blue = match.alliances.blue.score;
+            const winnerClass = match.winning_alliance === 'red' ? 'win-red' : 'win-blue';
+            
+            historyBody.innerHTML += `<tr>
+                <td>QM ${match.match_number}</td>
+                <td class="${match.winning_alliance==='red'?'win-red':''}">${red}</td>
+                <td class="${match.winning_alliance==='blue'?'win-blue':''}">${blue}</td>
+                <td>${match.winning_alliance.toUpperCase()}</td>
+            </tr>`;
+
+            // Dados para Ranking Individual (Dividido por 3)
+            ["red", "blue"].forEach(all => {
+                const sb = match.score_breakdown[all];
+                match.alliances[all].team_keys.forEach(k => {
+                    const num = k.replace("frc", "");
+                    let t = teams.find(x => x.num === num);
+                    if(!t) { t = {num, matches:[]}; teams.push(t); }
+                    if(t.matches.length < 12) {
+                        t.matches.push({
+                            auto: Math.round(sb.autoPoints/3), tele: Math.round(sb.teleopPoints/3),
+                            end: Math.round(sb.endgamePoints/3), total: Math.round(match.alliances[all].score/3)
+                        });
+                    }
+                });
+            });
+        });
+        save(); renderRanking();
+    } catch(e) { alert("Erro ao conectar com TBA"); }
+}
+
+function renderRanking() {
+    const tbody = document.querySelector("#rankTable tbody");
+    tbody.innerHTML = "";
+    const ranked = teams.map(t => {
+        const total = t.matches.reduce((s, m) => s + m.total, 0);
+        const avg = t.matches.length ? (total / t.matches.length).toFixed(1) : 0;
+        return { num: t.num, avg, total };
+    }).sort((a, b) => b.avg - a.avg);
+
+    ranked.forEach((t, i) => {
+        tbody.innerHTML += `<tr><td>${i+1}</td><td>${t.num}</td><td>${t.avg}</td><td>${t.total}</td></tr>`;
+    });
+}
+
+// --- GRÁFICOS E SIMULAÇÃO ---
 function selectTeam(i) {
     selectedTeamIndex = i !== "" ? Number(i) : null;
     document.getElementById("teamSelect").value = i;
@@ -157,168 +215,124 @@ function updateRoundSelect() {
     const rs = document.getElementById("roundSelect");
     rs.innerHTML = '<option value="all">Todos os rounds</option>';
     if (selectedTeamIndex === null) return;
-    teams[selectedTeamIndex].matches.forEach((_, i) => {
-        rs.innerHTML += `<option value="${i}">Round ${i+1}</option>`;
-    });
-}
-
-function addMatch() {
-    if (selectedTeamIndex === null) return alert("Selecione a equipe");
-    const team = teams[selectedTeamIndex];
-    if (team.matches.length >= 8) return alert("Limite atingido");
-
-    const m = {
-        auto: +document.getElementById("autoInput").value || 0,
-        tele: +document.getElementById("teleInput").value || 0,
-        end: +document.getElementById("endInput").value || 0,
-        pen: +document.getElementById("penInput").value || 0,
-        broke: document.getElementById("brokeInput").checked
-    };
-    m.total = m.auto + m.tele + m.end - m.pen;
-    team.matches.push(m);
-    
-    // Limpar campos
-    ["autoInput", "teleInput", "endInput", "penInput"].forEach(id => document.getElementById(id).value = "");
-    document.getElementById("brokeInput").checked = false;
-
-    save();
-    renderRanking();
-    renderChart(selectedTeamIndex);
-}
-
-// --- 4. RANKING E GRÁFICO ---
-function renderRanking() {
-    const tbody = document.querySelector("#rankTable tbody");
-    tbody.innerHTML = "";
-    const ranked = teams.map(t => {
-        const total = t.matches.reduce((s, m) => s + m.total, 0);
-        const avg = t.matches.length ? (total / t.matches.length).toFixed(1) : 0;
-        return { num: t.num, avg, total };
-    }).sort((a, b) => b.total - a.total);
-
-    ranked.forEach((t, i) => {
-        tbody.innerHTML += `<tr><td>${i+1}</td><td>${t.num}</td><td>${t.avg}</td><td>${t.total}</td></tr>`;
-    });
+    teams[selectedTeamIndex].matches.forEach((_, i) => { rs.innerHTML += `<option value="${i}">Round ${i+1}</option>`; });
 }
 
 function renderChart(teamIndex) {
-    const canvas = document.getElementById("performanceChart");
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (teamIndex === null || teams[teamIndex].matches.length === 0) return;
+  if (teamIndex === null) return;
 
-    let matches = teams[teamIndex].matches;
-    if (document.getElementById("roundSelect").value !== "all") {
-        matches = [matches[document.getElementById("roundSelect").value]];
-    }
+  const canvas = document.getElementById("performanceChart");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const pad = 50, w = canvas.width - pad*2, h = canvas.height - pad*2;
-    const max = Math.max(...matches.map(m => m.total), 20);
+  let matches = teams[teamIndex].matches;
+  if (!matches || matches.length === 0) return;
 
-    const drawL = (getter, color) => {
-        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
-        matches.forEach((m, i) => {
-            const x = pad + (matches.length === 1 ? w/2 : (w/(matches.length-1))*i);
-            const y = canvas.height - pad - (getter(m)/max)*h;
-            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    };
+  const roundSel = document.getElementById("roundSelect").value;
+  if (roundSel !== "all") {
+    matches = [matches[roundSel]];
+  }
 
-    drawL(m => m.auto, "#22c55e");
-    drawL(m => m.tele, "#38bdf8");
-    drawL(m => m.end, "#facc15");
-}
+  const pad = 50;
+  const w = canvas.width - pad * 2;
+  const h = canvas.height - pad * 2;
 
-// --- 5. TBA E SIMULAÇÃO ---
+  const max = Math.max(...matches.map(m => m.total), 10);
 
-// ===== IMPORTAÇÃO TBA CORRIGIDA =====
-async function importarMatchesTBA() {
-  if (!confirm("Isso irá sobrescrever os dados atuais. Deseja continuar?")) return;
-  
-  try {
-    const res = await fetch(
-      `https://www.thebluealliance.com/api/v3/event/${EVENT_KEY}/matches`,
-      { headers: { "X-TBA-Auth-Key": TBA_KEY } }
-    );
-    const data = await res.json();
+  // ===== EIXO Y + GRID (Igual ao original) =====
+  ctx.strokeStyle = "#1e293b";
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "12px Arial";
 
-    // Limpa os times atuais para evitar duplicar rounds e somas infinitas
-    teams = []; 
+  for (let i = 0; i <= 5; i++) {
+    const y = pad + (h / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(canvas.width - pad, y);
+    ctx.stroke();
 
-    data.forEach(match => {
-      // Pula se a partida ainda não aconteceu ou não tem detalhes de pontuação
-      if (!match.score_breakdown || match.comp_level !== "qm") return;
+    const val = Math.round(max - (max / 5) * i);
+    ctx.fillText(val, 10, y + 4);
+  }
 
-      ["red", "blue"].forEach(alliance => {
-        const sb = match.score_breakdown[alliance];
-        match.alliances[alliance].team_keys.forEach(k => {
-          const num = k.replace("frc", "");
-          let team = teams.find(t => t.num === num);
-          
-          if (!team) { 
-            team = { num, matches: [] }; 
-            teams.push(team); 
-          }
+  // ===== FUNÇÃO LINHA + PONTOS (Sua lógica perfeita) =====
+  const drawLine = (getter, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
 
-          // Só adiciona se o time tiver menos de 12 matches (limite comum de Quals)
-          if (team.matches.length < 12) {
-            team.matches.push({
-              // Nota: Como o TBA dá o ponto da ALIANÇA, dividimos por 3 
-              // para ter uma estimativa real por robô no gráfico.
-              auto: Math.round((sb.autoPoints || 0) / 3),
-              tele: Math.round((sb.teleopPoints || 0) / 3),
-              end: Math.round((sb.endgamePoints || 0) / 3),
-              pen: Math.round((sb.foulPoints || 0) / 3),
-              total: Math.round((match.alliances[alliance].score || 0) / 3),
-              broke: false
-            });
-          }
-        });
-      });
+    matches.forEach((m, i) => {
+      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+      const y = canvas.height - pad - (getter(m) / max) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     });
 
-    save();
-    renderRanking();
-    updateTeamSelects(); // Chamei a função correta do seu código
-    alert("Importação concluída! Os valores foram calculados pela média da aliança.");
-  } catch (e) {
-    alert("Erro ao importar do TBA. Verifique sua chave e conexão.");
-    console.error(e);
-  }
-}
+    ctx.stroke();
 
-function simularAliancas() {
-    const getVal = id => document.getElementById(id).value;
-    const a1 = [getVal("a1t1"), getVal("a1t2"), getVal("a1t3")];
-    const a2 = [getVal("a2t1"), getVal("a2t2"), getVal("a2t3")];
-    
-    const calc = idxs => {
-        let med = 0, max = 0;
-        idxs.forEach(i => {
-            if(i === "") return;
-            const t = teams[i];
-            const pts = t.matches.map(m => m.total);
-            med += pts.length ? pts.reduce((a,b)=>a+b,0)/pts.length : 0;
-            max += pts.length ? Math.max(...pts) : 0;
-        });
-        return { med: med.toFixed(1), max };
-    };
+    matches.forEach((m, i) => {
+      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+      const y = canvas.height - pad - (getter(m) / max) * h;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  };
 
-    const r1 = calc(a1), r2 = calc(a2);
-    document.getElementById("resultadoAliancas").innerHTML = `
-        <tr><td>Aliança 1</td><td>${r1.med}</td><td>${r1.max}</td></tr>
-        <tr><td>Aliança 2</td><td>${r2.med}</td><td>${r2.max}</td></tr>`;
+  // ===== DESENHO DAS LINHAS =====
+  drawLine(m => m.auto, "#22c55e"); // AUTO
+  drawLine(m => m.tele, "#38bdf8"); // TELEOP
+  drawLine(m => m.end,  "#facc15"); // ENDGAME
+
+  // ===== LINHA DA MÉDIA (Laranja Tracejada) =====
+  const media = matches.reduce((s, m) => s + m.total, 0) / matches.length;
+  const yMedia = canvas.height - pad - (media / max) * h;
+
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = "#f97316";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.moveTo(pad, yMedia);
+  ctx.lineTo(canvas.width - pad, yMedia);
+  ctx.stroke();
+
+  ctx.setLineDash([]); // Reset do tracejado
+
+  ctx.fillStyle = "#f97316";
+  ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 6, yMedia - 6);
 }
 
 function exportChart() {
-    const a = document.createElement("a");
-    a.download = "grafico.png";
-    a.href = document.getElementById("performanceChart").toDataURL();
-    a.click();
+  const canvas = document.getElementById("performanceChart");
+  const a = document.createElement("a");
+  a.download = "grafico.png";
+  a.href = canvas.toDataURL();
+  a.click();
+}
+
+function simularAliancas() {
+    const calc = ids => {
+        let med = 0, max = 0;
+        ids.forEach(id => {
+            const t = teams[document.getElementById(id).value];
+            if(!t || !t.matches.length) return;
+            const totals = t.matches.map(m => m.total);
+            med += totals.reduce((a,b)=>a+b,0)/totals.length;
+            max += Math.max(...totals);
+        });
+        return { med: med.toFixed(1), max };
+    };
+    const r1 = calc(["a1t1", "a1t2", "a1t3"]), r2 = calc(["a2t1", "a2t2", "a2t3"]);
+    document.getElementById("resultadoAliancas").innerHTML = `
+        <tr><td>Aliança 1</td><td>${r1.med}</td><td>${r1.max}</td></tr>
+        <tr><td>Aliança 2</td><td>${r2.med}</td><td>${r2.max}</td></tr>`;
 }
 
 // Inicialização
 updateTeamSelects();
 renderRanking();
 </script>
+</body>
+</html>
