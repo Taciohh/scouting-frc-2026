@@ -56,8 +56,6 @@
 <section>
   <h2>The Blue Alliance - Event View</h2>
   <button onclick="importarMatchesTBA()" style="background:#4f46e5;">Atualizar Dados do Evento</button>
-  
-  <h3>Histórico Real das Alianças</h3>
   <div class="scroll-table">
     <table>
       <thead>
@@ -80,6 +78,16 @@
 
 <section>
   <h2>Gráfico de Desempenho</h2>
+  <p class="small">🟢 PARTIDA | 🟠 MÉDIA (TRACEJADA)</p>
+  
+  <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: flex-end;">
+    <div style="flex-grow: 1;">
+      <label class="small">Buscar Equipe:</label>
+      <input type="number" id="quickSearch" placeholder="🔍 Digite o número da equipe..." oninput="searchTeam(this.value)" style="border-color: #38bdf8;">
+    </div>
+    <button onclick="clearSearch()" style="margin-top: 0; background: #475569; padding: 8px 12px;">Limpar</button>
+  </div>
+
   <div class="grid">
     <select id="chartTeamSelect" onchange="selectTeam(this.value)"></select>
     <select id="roundSelect" onchange="renderChart(selectedTeamIndex)">
@@ -103,10 +111,10 @@
 </section>
 
 <script>
-// --- CONFIGURAÇÃO INICIAL E LIMPEZA ---
+// --- CONFIGURAÇÃO E CACHE ---
 const EVENTO_ATUAL = "2026brba"; 
 if (localStorage.getItem("evento_ativo") !== EVENTO_ATUAL) {
-    localStorage.clear();
+    localStorage.removeItem("frcTeams");
     localStorage.setItem("evento_ativo", EVENTO_ATUAL);
 }
 
@@ -116,7 +124,30 @@ const EVENT_KEY = EVENTO_ATUAL;
 let teams = JSON.parse(localStorage.getItem("frcTeams")) || [];
 let selectedTeamIndex = null;
 
-// --- FUNÇÕES CORE ---
+// --- BUSCA E NAVEGAÇÃO ---
+function searchTeam(num) {
+    const index = teams.findIndex(t => t.num === num);
+    if (index !== -1) { selectTeam(index); }
+}
+
+function clearSearch() {
+    document.getElementById("quickSearch").value = "";
+    document.getElementById("chartTeamSelect").value = "";
+    document.getElementById("teamSelect").value = "";
+    selectedTeamIndex = null;
+    const ctx = document.getElementById("performanceChart").getContext("2d");
+    ctx.clearRect(0, 0, 700, 350);
+}
+
+function selectTeam(i) {
+    selectedTeamIndex = i !== "" ? Number(i) : null;
+    document.getElementById("teamSelect").value = i;
+    document.getElementById("chartTeamSelect").value = i;
+    updateRoundSelect();
+    renderChart(selectedTeamIndex);
+}
+
+// --- FUNÇÕES DE DADOS ---
 function save() {
     localStorage.setItem("frcTeams", JSON.stringify(teams));
     updateTeamSelects();
@@ -127,10 +158,10 @@ function updateTeamSelects() {
     selects.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        const currentVal = el.value;
+        const val = el.value;
         el.innerHTML = '<option value="">Selecione</option>';
         teams.forEach((t, i) => { el.innerHTML += `<option value="${i}">${t.num}</option>`; });
-        el.value = currentVal;
+        el.value = val;
     });
 }
 
@@ -143,32 +174,23 @@ function addTeam() {
 }
 
 async function importarMatchesTBA() {
-    if(!confirm("Isso atualizará o histórico e o ranking. Continuar?")) return;
+    if(!confirm("Isso atualizará os dados. Continuar?")) return;
     try {
         const res = await fetch(`https://www.thebluealliance.com/api/v3/event/${EVENT_KEY}/matches`, { headers: {"X-TBA-Auth-Key": TBA_KEY}});
         const data = await res.json();
         data.sort((a, b) => a.match_number - b.match_number);
-
         const historyBody = document.getElementById("allianceHistoryBody");
         historyBody.innerHTML = "";
-        teams = []; // Reset para evitar duplicados
+        teams = []; 
 
         data.forEach(match => {
             if (!match.score_breakdown || match.comp_level !== "qm") return;
-
-            // Histórico Real
-            const red = match.alliances.red.score;
-            const blue = match.alliances.blue.score;
-            const winnerClass = match.winning_alliance === 'red' ? 'win-red' : 'win-blue';
-            
             historyBody.innerHTML += `<tr>
                 <td>QM ${match.match_number}</td>
-                <td class="${match.winning_alliance==='red'?'win-red':''}">${red}</td>
-                <td class="${match.winning_alliance==='blue'?'win-blue':''}">${blue}</td>
+                <td class="${match.winning_alliance==='red'?'win-red':''}">${match.alliances.red.score}</td>
+                <td class="${match.winning_alliance==='blue'?'win-blue':''}">${match.alliances.blue.score}</td>
                 <td>${match.winning_alliance.toUpperCase()}</td>
             </tr>`;
-
-            // Dados para Ranking Individual (Dividido por 3)
             ["red", "blue"].forEach(all => {
                 const sb = match.score_breakdown[all];
                 match.alliances[all].team_keys.forEach(k => {
@@ -185,7 +207,7 @@ async function importarMatchesTBA() {
             });
         });
         save(); renderRanking();
-    } catch(e) { alert("Erro ao conectar com TBA"); }
+    } catch(e) { alert("Erro TBA"); }
 }
 
 function renderRanking() {
@@ -196,19 +218,96 @@ function renderRanking() {
         const avg = t.matches.length ? (total / t.matches.length).toFixed(1) : 0;
         return { num: t.num, avg, total };
     }).sort((a, b) => b.avg - a.avg);
-
-    ranked.forEach((t, i) => {
-        tbody.innerHTML += `<tr><td>${i+1}</td><td>${t.num}</td><td>${t.avg}</td><td>${t.total}</td></tr>`;
-    });
+    ranked.forEach((t, i) => { tbody.innerHTML += `<tr><td>${i+1}</td><td>${t.num}</td><td>${t.avg}</td><td>${t.total}</td></tr>`; });
 }
 
-// --- GRÁFICOS E SIMULAÇÃO ---
-function selectTeam(i) {
-    selectedTeamIndex = i !== "" ? Number(i) : null;
-    document.getElementById("teamSelect").value = i;
-    document.getElementById("chartTeamSelect").value = i;
-    updateRoundSelect();
-    renderChart(selectedTeamIndex);
+function addMatch() {
+    if (selectedTeamIndex === null) return alert("Selecione a equipe");
+    const m = {
+        auto: +document.getElementById("autoInput").value || 0,
+        tele: +document.getElementById("teleInput").value || 0,
+        end: +document.getElementById("endInput").value || 0,
+        pen: +document.getElementById("penInput").value || 0,
+        broke: document.getElementById("brokeInput").checked
+    };
+    m.total = m.auto + m.tele + m.end - m.pen;
+    teams[selectedTeamIndex].matches.push(m);
+    save(); renderRanking(); renderChart(selectedTeamIndex);
+}
+
+function renderChart(teamIndex) {
+    const canvas = document.getElementById("performanceChart");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (teamIndex === null || !teams[teamIndex] || !teams[teamIndex].matches || teams[teamIndex].matches.length === 0) return;
+
+    let matches = teams[teamIndex].matches;
+    const roundSel = document.getElementById("roundSelect").value;
+    if (roundSel !== "all") {
+        matches = [matches[roundSel]];
+    }
+
+    const pad = 50;
+    const w = canvas.width - pad * 2;
+    const h = canvas.height - pad * 2;
+    
+    // Escala baseada no total (que é o que temos de dado real agora)
+    const maxVal = Math.max(...matches.map(m => m.total || 0), 20);
+
+    // --- GRADE E EIXO Y ---
+    ctx.strokeStyle = "#1e293b";
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "12px Arial";
+    for (let i = 0; i <= 5; i++) {
+        const y = pad + (h / 5) * i;
+        ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(canvas.width - pad, y); ctx.stroke();
+        ctx.fillText(Math.round(maxVal - (maxVal / 5) * i), 10, y + 4);
+    }
+
+    // --- LINHA DE DESEMPENHO POR PARTIDA (VERDE) ---
+    // Usamos o 'm.total' para garantir que o gráfico não fique vazio
+    ctx.strokeStyle = "#22c55e"; // Verde
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+
+    matches.forEach((m, i) => {
+        const val = m.total || 0; 
+        const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+        const y = canvas.height - pad - (val / maxVal) * h;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Desenha os pontos (Bolinhas)
+    matches.forEach((m, i) => {
+        const val = m.total || 0;
+        const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
+        const y = canvas.height - pad - (val / maxVal) * h;
+        ctx.fillStyle = "#22c55e";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Texto com o valor em cima do ponto para facilitar a leitura rápida
+        ctx.fillStyle = "#e5e7eb";
+        ctx.fillText(val, x - 8, y - 12);
+    });
+
+    // --- LINHA DA MÉDIA (LARANJA TRACEJADA) ---
+    const media = matches.reduce((s, m) => s + (m.total || 0), 0) / matches.length;
+    const yMedia = canvas.height - pad - (media / maxVal) * h;
+
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = "#f97316";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(pad, yMedia); ctx.lineTo(canvas.width - pad, yMedia); ctx.stroke();
+    ctx.setLineDash([]); 
+
+    ctx.fillStyle = "#f97316";
+    ctx.font = "bold 14px Arial";
+    ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 10, yMedia - 10);
 }
 
 function updateRoundSelect() {
@@ -218,121 +317,23 @@ function updateRoundSelect() {
     teams[selectedTeamIndex].matches.forEach((_, i) => { rs.innerHTML += `<option value="${i}">Round ${i+1}</option>`; });
 }
 
-function renderChart(teamIndex) {
-  if (teamIndex === null) return;
-
-  const canvas = document.getElementById("performanceChart");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  let matches = teams[teamIndex].matches;
-  if (!matches || matches.length === 0) return;
-
-  const roundSel = document.getElementById("roundSelect").value;
-  if (roundSel !== "all") {
-    matches = [matches[roundSel]];
-  }
-
-  const pad = 50;
-  const w = canvas.width - pad * 2;
-  const h = canvas.height - pad * 2;
-
-  const max = Math.max(...matches.map(m => m.total), 10);
-
-  // ===== EIXO Y + GRID (Igual ao original) =====
-  ctx.strokeStyle = "#1e293b";
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "12px Arial";
-
-  for (let i = 0; i <= 5; i++) {
-    const y = pad + (h / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad, y);
-    ctx.lineTo(canvas.width - pad, y);
-    ctx.stroke();
-
-    const val = Math.round(max - (max / 5) * i);
-    ctx.fillText(val, 10, y + 4);
-  }
-
-  // ===== FUNÇÃO LINHA + PONTOS (Sua lógica perfeita) =====
-  const drawLine = (getter, color) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-
-    matches.forEach((m, i) => {
-      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
-      const y = canvas.height - pad - (getter(m) / max) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-
-    ctx.stroke();
-
-    matches.forEach((m, i) => {
-      const x = pad + (matches.length === 1 ? w / 2 : (w / (matches.length - 1)) * i);
-      const y = canvas.height - pad - (getter(m) / max) * h;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  };
-
-  // ===== DESENHO DAS LINHAS =====
-  drawLine(m => m.auto, "#22c55e"); // AUTO
-  drawLine(m => m.tele, "#38bdf8"); // TELEOP
-  drawLine(m => m.end,  "#facc15"); // ENDGAME
-
-  // ===== LINHA DA MÉDIA (Laranja Tracejada) =====
-  const media = matches.reduce((s, m) => s + m.total, 0) / matches.length;
-  const yMedia = canvas.height - pad - (media / max) * h;
-
-  ctx.setLineDash([6, 6]);
-  ctx.strokeStyle = "#f97316";
-  ctx.lineWidth = 2;
-
-  ctx.beginPath();
-  ctx.moveTo(pad, yMedia);
-  ctx.lineTo(canvas.width - pad, yMedia);
-  ctx.stroke();
-
-  ctx.setLineDash([]); // Reset do tracejado
-
-  ctx.fillStyle = "#f97316";
-  ctx.fillText(`Média: ${media.toFixed(1)}`, pad + 6, yMedia - 6);
-}
-
-function exportChart() {
-  const canvas = document.getElementById("performanceChart");
-  const a = document.createElement("a");
-  a.download = "grafico.png";
-  a.href = canvas.toDataURL();
-  a.click();
-}
-
 function simularAliancas() {
     const calc = ids => {
         let med = 0, max = 0;
         ids.forEach(id => {
             const t = teams[document.getElementById(id).value];
             if(!t || !t.matches.length) return;
-            const totals = t.matches.map(m => m.total);
-            med += totals.reduce((a,b)=>a+b,0)/totals.length;
-            max += Math.max(...totals);
+            const pts = t.matches.map(m => m.total);
+            med += pts.reduce((a,b)=>a+b,0)/pts.length; max += Math.max(...pts);
         });
         return { med: med.toFixed(1), max };
     };
     const r1 = calc(["a1t1", "a1t2", "a1t3"]), r2 = calc(["a2t1", "a2t2", "a2t3"]);
-    document.getElementById("resultadoAliancas").innerHTML = `
-        <tr><td>Aliança 1</td><td>${r1.med}</td><td>${r1.max}</td></tr>
-        <tr><td>Aliança 2</td><td>${r2.med}</td><td>${r2.max}</td></tr>`;
+    document.getElementById("resultadoAliancas").innerHTML = `<tr><td>Aliança 1</td><td>${r1.med}</td><td>${r1.max}</td></tr><tr><td>Aliança 2</td><td>${r2.med}</td><td>${r2.max}</td></tr>`;
 }
 
 // Inicialização
-updateTeamSelects();
-renderRanking();
+updateTeamSelects(); renderRanking();
 </script>
 </body>
 </html>
